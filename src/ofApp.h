@@ -2,7 +2,7 @@
 
 #include "ofMain.h"
 #include "ofxSyphon.h"
-
+#include "ofxLeapMotion2.h"
 
 
 
@@ -71,6 +71,12 @@ class ofApp : public ofBaseApp{
     ofxSyphonClient mClient;
     
     ofTexture tex;
+    //leapmotion
+    ofxLeapMotion leap;
+    vector <ofxLeapMotionSimpleHand> simpleHands;
+    
+    vector <int> fingersFound;
+    ofEasyCam cam;
 
     
 };

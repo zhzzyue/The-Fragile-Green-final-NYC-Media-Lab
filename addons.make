@@ -1,1 +1,2 @@
+ofxLeapMotion2
 ofxSyphon

@@ -11,12 +11,14 @@ int byteData;
 ofFbo fbo;
 ofColor color;
 float n;
+float mouseP;
+
 
 
 
 void ofApp::setup(){
 
-    ofSetWindowShape(1024,768);
+    ofSetWindowShape(1280,720);
     
     ofSetWindowTitle("ofxSyphon Green");
     
@@ -24,6 +26,15 @@ void ofApp::setup(){
     individualTextureSyphonServer.setName("Green Texture Output");
     mClient.set("","Simple Server");
      tex.allocate(200, 100, GL_RGBA);
+    ofSetFrameRate(60);
+    ofSetVerticalSync(true);
+    ofSetLogLevel(OF_LOG_VERBOSE);
+
+    
+    //leapmotion
+    leap.open();
+    
+    cam.setOrientation(ofPoint(-20, 0, 0));
     //sound
     waterSound.load("water.mp3");
     birdSound.load("bird.mp3");
@@ -38,9 +49,9 @@ void ofApp::setup(){
     //General setup of look of window.
     
     
-    ofSetColor(0);
-    font.load("Verdana.ttf", 48);
-    font1.load("Verdana.ttf", 24);
+//    ofSetColor(0);
+//    font.load("Verdana.ttf", 48);
+//    font1.load("Verdana.ttf", 24);
 
     //serial port setup. using COM3 for Windows port.
     //Also using baud rate 9600, same in Arduino sketch.
@@ -74,59 +85,60 @@ void ofApp::setup(){
 
 //-------------------------------------------------------------------------------------
 void ofApp::update(){
+    //leapmotion
+    fingersFound.clear();
     
+    simpleHands = leap.getSimpleHands();
     
-    //Simple if statement to inform user if Arduino is sending serial messages.
-    if (serial.available() < 0) {
-        msg = "Arduino Error";
+    if( leap.isFrameNew() && simpleHands.size() ){
+        
+        leap.setMappingX(-230, 230, -ofGetWidth()/2, ofGetWidth()/2);
+        leap.setMappingY(90, 490, -ofGetHeight()/2, ofGetHeight()/2);
+        leap.setMappingZ(-150, 150, -ofGetWidth()/2, ofGetWidth()/2);
     }
-    else {
-        //While statement looping through serial messages when serial is being provided.
-        while (serial.available() > 0) {
-            //byte data is being writen into byteData as int.
-            byteData = serial.readByte();
-            
-            //byteData is converted into a string for drawing later.
-//            msg = "cm: " + ofToString(byteData);
+    
+    cam.begin();
+    for(int i = 0; i < simpleHands.size(); i++){
+        bool isLeft        = simpleHands[i].isLeft;
+        ofPoint handPos    = simpleHands[i].handPos;
+        ofPoint handNormal = simpleHands[i].handNormal;
+        
+        mouseMoved( handPos.x + ofGetWidth()/2 ,handPos.z + ofGetHeight()/2);
+        int hx = handPos.x + ofGetWidth()/2;
+        int hz = handPos.z + ofGetHeight()/2 ;
+        
+        
+        if( hx > ofGetWidth() || hz > ofGetHeight() || hx < 0 || hz <0 ){
+            //                Agents[curAgent].start(0, 0);
+            //                curAgent++;
+            //                if (curAgent >= MAX_AGENTS) {  // make sure it does not go over
+            //                    curAgent = 0;
+            //                }
+            mouseMoved(ofRandom(1300,1400), ofRandom(800,1000));
         }
     }
+//    for(int i = 0; i < simpleHands.size(); i++){
+//        bool isLeft        = simpleHands[i].isLeft;
+//        ofPoint handPos    = simpleHands[i].handPos;
+//        ofPoint handNormal = simpleHands[i].handNormal;
+//        
+//        mouseMoved( handPos.x + ofGetWidth()/2 ,handPos.z + ofGetHeight()/2);
+//        int hx = handPos.x + ofGetWidth()/2;
+//        int hz = handPos.z + ofGetHeight()/2 ;
+//        
+//        
+//        if( hx > ofGetWidth() || hz > ofGetHeight() ){
     
-    //state & dist setting
-//    if(byteData < 97){
-////        ofSetColor(0);
-//        state = 0; //if nothing is detected
-//    
-//    }else
-        if(byteData == 97){
-        ofSetColor(255, 0, 0);//red
-        state = 1;
-        
-    }else if(byteData == 98){
-        ofSetColor(0,255,0);//green
-        state = 2;
-    }else if(byteData == 99){
-        ofSetColor(0, 0, 255);//blue
-        state = 3;
-    }else if(byteData == 100){
-        ofSetColor(255, 255, 0);//yellow
-        state = 4;
-    }
+//            mouseMoved(ofGetWidth()+200, ofGetHeight()/2);
+//            mouseMoved(ofGetWidth()/2, ofGetHeight()/2);
+//            ofGetMousePressed(true);
+            
+//
+//        }
+
+//    }
+    cam.end();
     
-//    cout << state << endl;
-
-
-
-    
-    
-    ofSoundUpdate();
-    val = ofSoundGetSpectrum(nBandsToGet);
-    for (int i = 0;i < nBandsToGet; i++){
-        fftSmoothed[i] *= 0.96f;
-        if (fftSmoothed[i] < val[i]) fftSmoothed[i] = val[i];
-
-    }
-    
-
 }
 
 
@@ -134,7 +146,7 @@ void ofApp::update(){
 //-------------------------------------------------------------------------------------
 using namespace std;		// this is so we can use cout
 
-#define MAX_AGENTS 500		// how many agents we can have max
+#define MAX_AGENTS 200		// how many agents we can have max
 agent Agents[MAX_AGENTS];	// storage (memory) space for all the unique details of every agent
 
 // constructor
@@ -151,16 +163,7 @@ agent::agent(){
 
 // update all variables in an agent
 void agent::update(agent *arr){  // influence the main vector
-    
 
-//    velDir.set(0, fftSmoothed[1]*10);	// init random speed
-//// cout<<fftSmoothed[1]*10<<endl;
-//     velDir.rotate(ofRandom(135,360));
-
-    
-
-    
-    
     ofVec2f noVec(-1,-1);
     
     if (!active)
@@ -172,7 +175,7 @@ void agent::update(agent *arr){  // influence the main vector
     
     
     float ChangeAngle = velDir.angle(mouse - location);
-    velDir.rotate(ChangeAngle * 0.06);
+    velDir.rotate(ChangeAngle * 0.5);
     
     /*
      set mouse gravity here
@@ -214,7 +217,8 @@ void agent::draw(){
     if (location.x > ofGetWidth()) location.x = 0;
     if (location.x < 0) location.x = ofGetWidth();
     if (location.y > ofGetHeight()) location.y = 0;
-    if (location.y < 0) location.y = ofGetHeight();
+        if (location.y < 0) location.y = ofGetHeight();
+    
     
 //    p1 += location;	// move to current location
 //    p2 += location;
@@ -230,7 +234,7 @@ void agent::draw(){
     ofDrawCircle(location.x, location.y, 2);
     
     
-    
+
     
     
 //    ofDrawCircle(mouse, 10);
@@ -329,63 +333,52 @@ int curAgent = 0;			// what agent we are dealing with
 
 //--------------------------------------------------------------
 void ofApp::draw(){
+//    for(int i = 0; i < simpleHands.size(); i++){
+//        bool isLeft        = simpleHands[i].isLeft;
+//        ofPoint handPos    = simpleHands[i].handPos;
+//        ofPoint handNormal = simpleHands[i].handNormal;
+//
+//        mouseMoved( handPos.x + ofGetWidth()/2 ,handPos.z + ofGetHeight()/2);
+//        int hx = handPos.x + ofGetWidth()/2;
+//        int hz = handPos.z + ofGetHeight()/2 ;
+//
+//
+//        if( hx > ofGetWidth() || hz > ofGetHeight() || hx < 0 || hz <0 ){
+////                Agents[curAgent].start(0, 0);
+////                curAgent++;
+////                if (curAgent >= MAX_AGENTS) {  // make sure it does not go over
+////                    curAgent = 0;
+////                }
+//             mouseMoved(ofGetWidth()+ ofRandom(1000), ofGetHeight()/2 + ofRandom(1000));
+//        }
+//    }
     
-    //draw state == 1
-    if(state == 1){
-      bool waterPlay = waterSound.isPlaying();
-        if (waterPlay == false){
-            waterSound.play();
-            mouseMoved(825, 750);
-        }
-    } else {
-        waterSound.stop();
+    //leapmotion
 
+    for(int i = 0; i < simpleHands.size(); i++){
+        bool isLeft        = simpleHands[i].isLeft;
+        ofPoint handPos    = simpleHands[i].handPos;
+        ofPoint handNormal = simpleHands[i].handNormal;
+        int alpha = 150;
+//        ofSetColor(0, 255, 0);
+        ofColor aqua(0, 252, 255, alpha);
+        ofColor green(34, 139, 34, alpha);
+        ofColor inbetween = aqua.getLerped(green, ofRandom(1.0));
+        ofDrawSphere(handPos.x + ofGetWidth()/2 ,handPos.z + ofGetHeight()/2, 20);
+//        ofSetColor(255, 255, 0);
+        
     }
-    //draw state == 2
-    if(state == 2){
-        bool cicadePlay = cicadeSound.isPlaying();
-        if (cicadePlay == false){
-            cicadeSound.play();
-            mouseMoved(625, 750);
-        }
-    } else {
-        cicadeSound.stop();
+   
 
-    }
-    //draw state == 3
-    if(state == 3){
-        bool birdPlay = birdSound.isPlaying();
-        if (birdPlay == false){
-            birdSound.play();
-            mouseMoved(410, 750);
-
-        }
-    } else {
-        birdSound.stop();
-    }
-    //draw state == 4
-    if(state == 4){
-        bool grassPlay = grassSound.isPlaying();
-        if (grassPlay == false){
-            grassSound.play();
-            mouseMoved(200, 750);
-        }
-    } else {
-        grassSound.stop();
-    }
-
-
-    
-
-    //drawing the string version pf byteData on oF window.
-    font.drawString("The Fragile Green", 50, 400);
-    font1.drawString("-Spirits are likely hiding in natural world", 50, 450);
-//    font1.drawString("-Go Catch the Fireflies", 50, 450);
-    font1.drawString("Go Catch the Fireflies", 325, 150);
-    
-    //printing byteData into console.
-//    cout << state << endl;
-    
+//    //drawing the string version pf byteData on oF window.
+//    font.drawString("The Fragile Green", 50, 400);
+//    font1.drawString("-Spirits are likely hiding in natural world", 50, 450);
+////    font1.drawString("-Go Catch the Fireflies", 50, 450);
+//    font1.drawString("Go Catch the Fireflies", 325, 150);
+//    
+//    //printing byteData into console.
+////    cout << state << endl;
+//    
     
     
     
@@ -430,6 +423,7 @@ void ofApp::keyPressed(int key){
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key){
+    
     switch (key){
         case 'f':
         ofToggleFullscreen();
@@ -441,11 +435,22 @@ void ofApp::keyReleased(int key){
 
 //--------------------------------------------------------------
 void ofApp::mouseMoved(int x, int y ){
+    
     for (int i=0; i < MAX_AGENTS; i++) {
         Agents[i].calcGravityWell(x,y);
     }
-}
 
+    
+
+
+    
+//    if ( x < 0 && x > ofGetHeight() && y < 0 && y > ofGetWidth());
+//    { mouseMoved(0,720);
+////        for (int i=0; i < MAX_AGENTS; i++) {
+////            Agents[i].calcGravityWell(-x,-y);
+////        }
+//    }
+}
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button){
     
@@ -453,11 +458,13 @@ void ofApp::mouseDragged(int x, int y, int button){
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button){
-    Agents[curAgent].start(x, y);
-    curAgent++;
-    if (curAgent >= MAX_AGENTS) {  // make sure it does not go over
-        curAgent = 0;
-    }
+//
+//    Agents[curAgent].start(x, y);
+//    curAgent++;
+//    if (curAgent >= MAX_AGENTS || mouseP == 0) {  // make sure it does not go over
+//        curAgent = 0;
+//    }
+    
 }
 
 //--------------------------------------------------------------
